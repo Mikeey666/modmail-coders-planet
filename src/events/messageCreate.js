@@ -1,3 +1,4 @@
+
 const { createTicket, addMessageToTicket, closeTicket } = require('../utils/modmail');
 const Ticket = require('../schemas/Ticket');
 const Config = require('../schemas/Config');
@@ -25,15 +26,13 @@ module.exports = {
         return;
       }
 
-      const added = await addMessageToTicket(message, client, false);
-      if (added) return;
+      if (await addMessageToTicket(message, client, false)) return;
 
       await createTicket(message, client);
       return;
     }
 
-    const isModmailChannel = message.channel.name.startsWith('modmail-');
-    if (isModmailChannel) {
+    if (message.channel.name?.startsWith('modmail-')) {
       const guildConfig = await Config.findOne({ guildId: message.guild.id });
 
       if (!guildConfig) {
@@ -42,8 +41,7 @@ module.exports = {
       }
 
       const staffRoleId = guildConfig.staffRoleId;
-      const hasStaffRole = message.member.roles.cache.has(staffRoleId);
-      if (!hasStaffRole) {
+      if (!message.member.roles.cache.has(staffRoleId)) {
         return message.reply(`You do not have permission to use this channel. You need the <@&${staffRoleId}> role.`);
       }
 
@@ -56,11 +54,6 @@ module.exports = {
           if (!channelName.startsWith('modmail-')) {
             return message.reply('This command can only be used in ModMail ticket channels.');
           }
-          //forward messages
-           if (commandName === 'reply') {
-          const channelName = message.channel.name;
-          if (!channelName.startsWith('modmail-')) {
-            return message.reply('This command can only be used in ModMail ticket channels.');
 
           const existingTicket = await Ticket.findOne({
             channelId: message.channel.id,
@@ -71,35 +64,35 @@ module.exports = {
             return message.reply('Error: This channel is not an active ticket or the ticket could not be found in the database.');
           }
 
-          reason = args.join(' ') || 'No reason provided';
+          const reason = args.slice(0).join(' ') || 'No reason provided';
 
-          closeConfirmation = await ConfigManager.getSetting(
+          const closeConfirmation = await ConfigManager.getSetting(
             message.guild.id,
             'settings.tickets.closeConfirmation',
             true
           );
 
-          embedColor = await ConfigManager.getSetting(
+          const embedColor = await ConfigManager.getSetting(
             message.guild.id,
             'settings.appearance.embedColor',
             config.embedColor
           );
 
           if (closeConfirmation) {
-            confirmButton = new ButtonBuilder()
+            const confirmButton = new ButtonBuilder()
               .setCustomId('confirm_close')
               .setLabel('Close Ticket')
               .setStyle(ButtonStyle.Danger);
 
-            cancelButton = new ButtonBuilder()
+            const cancelButton = new ButtonBuilder()
               .setCustomId('cancel_close')
               .setLabel('Cancel')
               .setStyle(ButtonStyle.Secondary);
 
-            row = new ActionRowBuilder()
+            const row = new ActionRowBuilder()
               .addComponents(confirmButton, cancelButton);
 
-            confirmEmbed = new EmbedBuilder()
+            const confirmEmbed = new EmbedBuilder()
               .setColor(embedColor)
               .setTitle('Close Ticket?')
               .setDescription(`Are you sure you want to close this ticket?\n\n**Reason:** ${reason}`)
@@ -107,13 +100,13 @@ module.exports = {
               .setTimestamp();
 
             try {
-              response = await message.reply({
+              const response = await message.reply({
                 embeds: [confirmEmbed],
                 components: [row],
                 fetchReply: true
               });
 
-              collector = response.createMessageComponentCollector({
+              const collector = response.createMessageComponentCollector({
                 filter: i => i.user.id === message.author.id,
                 time: 30000,
                 max: 1
@@ -126,7 +119,7 @@ module.exports = {
                 interactionHandled = true;
 
                 try {
-                  disabledRow = new ActionRowBuilder().addComponents(
+                  const disabledRow = new ActionRowBuilder().addComponents(
                     ButtonBuilder.from(confirmButton).setDisabled(true),
                     ButtonBuilder.from(cancelButton).setDisabled(true)
                   );
@@ -138,10 +131,10 @@ module.exports = {
                   });
 
                   if (interaction.customId === 'confirm_close') {
-                    await message.channel.send('Closing ticket...').catch(() => {});
+                    await interaction.reply({ content: 'Closing ticket...', ephemeral: true }).catch(() => {});
 
                     try {
-                      result = await closeTicket(
+                      const result = await closeTicket(
                         message.channel,
                         client,
                         message.author,
@@ -149,38 +142,31 @@ module.exports = {
                       );
                       if (!result.success) {
                         if (result.alreadyClosed) {
-                          await message.channel.send("This ticket has already been closed by someone else.").catch(() => {});
+                          await interaction.followUp({ content: "This ticket has already been closed by someone else.", ephemeral: true }).catch(() => {});
                         } else {
-                          await message.channel.send(`Error: ${result.error}`).catch(() => {});
+                          await interaction.followUp({ content: `Error: ${result.error}`, ephemeral: true }).catch(() => {});
                         }
                       } else if (result.duplicateClose) {
-                        await message.channel.send("Continuing with ticket closure...").catch(() => {});
+                        await interaction.followUp({ content: "Continuing with ticket closure...", ephemeral: true }).catch(() => {});
                       }
                     } catch (error) {
                       logger.error('Error closing ticket:', error);
-                      try {
-                        if (message.channel) {
-                          await message.channel.send('An error occurred while closing the ticket.').catch(() => {});
-                        }
-                      } catch (err) { }
+                      await interaction.followUp({ content: 'An error occurred while closing the ticket.', ephemeral: true }).catch(() => {});
                     }
                   } else if (interaction.customId === 'cancel_close') {
-                    await message.channel.send('Ticket close canceled.').catch(() => {});
+                    await interaction.reply({ content: 'Ticket close canceled.', ephemeral: true }).catch(() => {});
                   }
                 } catch (error) {
                   logger.error('Error handling button interaction:', error);
-                  try {
-                    await message.channel.send(
-                      interaction.customId === 'confirm_close' ? 'Attempting to close the ticket...' : 'Ticket close canceled.'
-                    ).catch(() => {});
+                  await interaction.followUp({
+                    content: interaction.customId === 'confirm_close' ? 'Attempting to close the ticket...' : 'Ticket close canceled.',
+                    ephemeral: true
+                  }).catch(() => {});
 
-                    if (interaction.customId === 'confirm_close') {
-                      await closeTicket(message.channel, client, message.author, reason).catch(err => {
-                        logger.error('Error in fallback ticket close:', err);
-                      });
-                    }
-                  } catch (followUpError) {
-                    logger.error('Error sending follow-up message:', followUpError);
+                  if (interaction.customId === 'confirm_close') {
+                    await closeTicket(message.channel, client, message.author, reason).catch(err => {
+                      logger.error('Error in fallback ticket close:', err);
+                    });
                   }
                 }
               });
@@ -200,8 +186,8 @@ module.exports = {
             }
           } else {
             try {
-              closeMsg = await message.reply('Closing ticket...');
-              result = await closeTicket(
+              const closeMsg = await message.reply('Closing ticket...');
+              const result = await closeTicket(
                 message.channel,
                 client,
                 message.author,
@@ -218,11 +204,9 @@ module.exports = {
               }
             } catch (error) {
               logger.error('Error directly closing ticket:', error);
-              try {
-                if (message.channel) {
-                  await message.channel.send('An error occurred while closing the ticket.').catch(() => {});
-                }
-              } catch (err) { }
+              if (message.channel) {
+                await message.channel.send('An error occurred while closing the ticket.').catch(() => {});
+              }
             }
           }
           return;
@@ -232,27 +216,37 @@ module.exports = {
       await addMessageToTicket(message, client, true);
       return;
     }
-//enviar con REPLY
-    if (!message.content.startsWith('/reply')) return;
-    const content = message.content.replace('/reply', '');
-    commandName = args.shift().toLowerCase();
-        
 
-    command = client.commands.get(commandName);
-    if (!command) return;
+    if (message.content.startsWith('/reply')) {
+      const content = message.content.slice('/reply'.length).trim();
+      const ticket = await Ticket.findOne({ channelId: message.channel.id, closed: false });
 
-    try {
-      await command.execute(message, args, client);
-    } catch (error) {
-      logger.error(`Error executing command ${commandName}:`, error);
-      message.reply('There was an error trying to execute that command!');
+      if (!ticket) {
+        return message.reply('This channel is not an active ticket.');
+      }
+
+      const user = await client.users.fetch(ticket.userId);
+
+      if (!user) {
+        return message.reply('Could not find the user associated with this ticket.');
+      }
+
+      try {
+        await user.send(content);
+        await message.reply('Message sent to user.');
+      } catch (error) {
+        logger.error('Error sending message to user:', error);
+        await message.reply('There was an error sending the message to the user.');
+      }
+
+      return;
     }
   }
 };
 
 async function handleListTicketsCommand(message, client) {
   try {
-    activeTickets = await Ticket.find({ userId: message.author.id, closed: false }).sort({ createdAt: -1 });
+    const activeTickets = await Ticket.find({ userId: message.author.id, closed: false }).sort({ createdAt: -1 });
 
     if (activeTickets.length === 0) {
       return message.reply("You don't have any active tickets. Just send me a message to create a new one!");
@@ -260,7 +254,7 @@ async function handleListTicketsCommand(message, client) {
 
     let ticketList = `You have ${activeTickets.length} active ticket(s):\n\n`;
 
-    for (ticket of activeTickets) {
+    for (const ticket of activeTickets) {
       const guild = client.guilds.cache.get(ticket.guildId);
       const guildName = guild ? guild.name : 'Unknown Server';
       const createdAt = moment(ticket.createdAt).format('MMM D, YYYY [at] h:mm A');
