@@ -280,8 +280,29 @@ module.exports = {
         return;
       }
 
-      // Otherwise, forward to the user as a reply
-      await addMessageToTicket(message, client, true);
+            // Handle reply command
+      if (message.content.startsWith(config.prefix)) {
+        const args = message.content.slice(config.prefix.length).trim().split(/ +/);
+        const commandName = args.shift().toLowerCase();
+
+        if (commandName === 'reply') {
+          if (args.length === 0) {
+            return message.reply('Please provide a message to send.');
+          }
+
+          // Temporarily modify the message content to only contain the reply text
+          message.content = args.join(' ');
+
+          await addMessageToTicket(message, client, true);
+
+          // Optional: delete the staff command message
+          await message.delete().catch(() => {});
+        }
+
+        return;
+      }
+
+      // If it's not a command, do nothing (staff discussion allowed)
       return;
     }
 
