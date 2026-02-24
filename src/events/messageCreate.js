@@ -71,35 +71,35 @@ module.exports = {
             return message.reply('Error: This channel is not an active ticket or the ticket could not be found in the database.');
           }
 
-          const reason = args.join(' ') || 'No reason provided';
+          reason = args.join(' ') || 'No reason provided';
 
-          const closeConfirmation = await ConfigManager.getSetting(
+          closeConfirmation = await ConfigManager.getSetting(
             message.guild.id,
             'settings.tickets.closeConfirmation',
             true
           );
 
-          const embedColor = await ConfigManager.getSetting(
+          embedColor = await ConfigManager.getSetting(
             message.guild.id,
             'settings.appearance.embedColor',
             config.embedColor
           );
 
           if (closeConfirmation) {
-            const confirmButton = new ButtonBuilder()
+            confirmButton = new ButtonBuilder()
               .setCustomId('confirm_close')
               .setLabel('Close Ticket')
               .setStyle(ButtonStyle.Danger);
 
-            const cancelButton = new ButtonBuilder()
+            cancelButton = new ButtonBuilder()
               .setCustomId('cancel_close')
               .setLabel('Cancel')
               .setStyle(ButtonStyle.Secondary);
 
-            const row = new ActionRowBuilder()
+            row = new ActionRowBuilder()
               .addComponents(confirmButton, cancelButton);
 
-            const confirmEmbed = new EmbedBuilder()
+            confirmEmbed = new EmbedBuilder()
               .setColor(embedColor)
               .setTitle('Close Ticket?')
               .setDescription(`Are you sure you want to close this ticket?\n\n**Reason:** ${reason}`)
@@ -107,13 +107,13 @@ module.exports = {
               .setTimestamp();
 
             try {
-              const response = await message.reply({
+              response = await message.reply({
                 embeds: [confirmEmbed],
                 components: [row],
                 fetchReply: true
               });
 
-              const collector = response.createMessageComponentCollector({
+              collector = response.createMessageComponentCollector({
                 filter: i => i.user.id === message.author.id,
                 time: 30000,
                 max: 1
@@ -126,7 +126,7 @@ module.exports = {
                 interactionHandled = true;
 
                 try {
-                  const disabledRow = new ActionRowBuilder().addComponents(
+                  disabledRow = new ActionRowBuilder().addComponents(
                     ButtonBuilder.from(confirmButton).setDisabled(true),
                     ButtonBuilder.from(cancelButton).setDisabled(true)
                   );
@@ -141,7 +141,7 @@ module.exports = {
                     await message.channel.send('Closing ticket...').catch(() => {});
 
                     try {
-                      const result = await closeTicket(
+                      result = await closeTicket(
                         message.channel,
                         client,
                         message.author,
@@ -200,8 +200,8 @@ module.exports = {
             }
           } else {
             try {
-              const closeMsg = await message.reply('Closing ticket...');
-              const result = await closeTicket(
+              closeMsg = await message.reply('Closing ticket...');
+              result = await closeTicket(
                 message.channel,
                 client,
                 message.author,
@@ -232,12 +232,13 @@ module.exports = {
       await addMessageToTicket(message, client, true);
       return;
     }
+//enviar con REPLY
+    if (!message.content.startsWith('/reply')) return;
+    const content = message.content.replace('/reply', '');
+    commandName = args.shift().toLowerCase();
+        
 
-    if (!message.content.startsWith(config.prefix)) return;
-    const args = message.content.slice(config.prefix.length).trim().split(/ +/);
-    const commandName = args.shift().toLowerCase();
-
-    const command = client.commands.get(commandName);
+    command = client.commands.get(commandName);
     if (!command) return;
 
     try {
@@ -251,7 +252,7 @@ module.exports = {
 
 async function handleListTicketsCommand(message, client) {
   try {
-    const activeTickets = await Ticket.find({ userId: message.author.id, closed: false }).sort({ createdAt: -1 });
+    activeTickets = await Ticket.find({ userId: message.author.id, closed: false }).sort({ createdAt: -1 });
 
     if (activeTickets.length === 0) {
       return message.reply("You don't have any active tickets. Just send me a message to create a new one!");
@@ -259,7 +260,7 @@ async function handleListTicketsCommand(message, client) {
 
     let ticketList = `You have ${activeTickets.length} active ticket(s):\n\n`;
 
-    for (const ticket of activeTickets) {
+    for (ticket of activeTickets) {
       const guild = client.guilds.cache.get(ticket.guildId);
       const guildName = guild ? guild.name : 'Unknown Server';
       const createdAt = moment(ticket.createdAt).format('MMM D, YYYY [at] h:mm A');
