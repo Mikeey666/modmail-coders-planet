@@ -76,7 +76,7 @@ const configSchema = new mongoose.Schema({
       },
       responseMessage: {
         type: String,
-        default: 'Staff reply:'
+        default: ''
       }
     },
     appearance: {
