@@ -75,19 +75,20 @@ if (message.content.startsWith(config.prefix)) {
   }
 
   // REPLY COMMAND
-  if (commandName === 'reply') {
-    if (args.length === 0) {
-      return message.reply('Please provide a message to send.');
-    }
-
-    message.content = args.join(' ');
-    await addMessageToTicket(message, client, true);
-
-    await message.delete().catch(() => {});
-    return;
+ // Only allow reply command to forward messages
+if (message.content.startsWith(config.prefix + 'reply')) {
+  const args = message.content.slice((config.prefix + 'reply').length).trim();
+  
+  if (!args) {
+    return message.reply('Please provide a message to send.');
   }
 
-  return;
+  message.content = args;
+  await addMessageToTicket(message, client, true);
+  await message.delete().catch(() => {});
+}
+
+return;
 }
 
 // If it's not a command, allow staff discussion only
