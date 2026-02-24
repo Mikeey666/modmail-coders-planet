@@ -1,10 +1,10 @@
 module.exports = {
-  prefix: process.env.PREFIX || '!',
-  embedColor: '#5865F2', // Discord Blurple
-  footer: 'Made by Izzy | Coders Planet',
+  prefix: process.env.PREFIX || '=',
+  embedColor: '#ED4245', // Red
+  footer: 'Made by @childeetos',
   statusMessages: {
-    online: 'DM me to create a ticket!',
-    idle: 'Watching for new ModMail tickets'
+    online: 'Playing Chess with the Heavenly Principles',
+    idle: 'Playing Chess with the Heavenly Principles'
   },
   cooldowns: {
     commands: 3, // cooldown in seconds for normal commands
@@ -23,7 +23,7 @@ module.exports = {
     }
   },
   credits: {
-    name: 'Izzy | Coders Planet',
-    website: 'https://discord.gg/codersplanet'
+    name: '@childeetos',
+    website: 'https://discord.gg/ZNQnnE6Vr6'
   }
 }; 
