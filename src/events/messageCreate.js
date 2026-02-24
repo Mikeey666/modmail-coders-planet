@@ -62,13 +62,36 @@ module.exports = {
         return message.reply(`You do not have permission to use this channel. You need the <@&${staffRoleId}> role.`);
       }
 
-      // If it's a command, handle it
-      if (message.content.startsWith(config.prefix)) {
-        const args = message.content.slice(config.prefix.length).trim().split(/ +/);
-        const commandName = args.shift().toLowerCase();
+     // If it's a command, handle it
+if (message.content.startsWith(config.prefix)) {
+  const args = message.content.slice(config.prefix.length).trim().split(/ +/);
+  const commandName = args.shift().toLowerCase();
 
-        // Handle built-in modmail commands here
-        if (commandName === 'close') {
+  // CLOSE COMMAND (keep your existing close logic here)
+  if (commandName === 'close') {
+    // keep everything that was already inside your close command
+    // DO NOT delete that code
+    // just leave it exactly how it was
+  }
+
+  // REPLY COMMAND
+  if (commandName === 'reply') {
+    if (args.length === 0) {
+      return message.reply('Please provide a message to send.');
+    }
+
+    message.content = args.join(' ');
+    await addMessageToTicket(message, client, true);
+
+    await message.delete().catch(() => {});
+    return;
+  }
+
+  return;
+}
+
+// If it's not a command, allow staff discussion only
+return;
           // Extract the channel ID from the channel name
           const channelName = message.channel.name;
           
