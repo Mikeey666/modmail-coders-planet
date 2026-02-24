@@ -4,20 +4,22 @@ const Config = require('../schemas/Config');
 const config = require('../config/config');
 const logger = require('../utils/logger');
 const moment = require('moment');
+const { EmbedBuilder } = require('discord.js');
 
 module.exports = {
   name: 'messageCreate',
   async execute(message, client) {
+
     if (message.author.bot) return;
 
     const prefix = config.prefix;
 
-    // =========================
-    // DM FROM USER
-    // =========================
+    // =====================================================
+    // USER DM
+    // =====================================================
     if (message.channel.isDMBased()) {
 
-      // Command in DM
+      // Commands in DM
       if (message.content.startsWith(prefix)) {
         const args = message.content.slice(prefix.length).trim().split(/ +/);
         const command = args.shift()?.toLowerCase();
@@ -29,102 +31,112 @@ module.exports = {
         return;
       }
 
-      // If ticket exists → add message
+      // Add message to existing ticket
       const added = await addMessageToTicket(message, client, false);
       if (added) return;
 
-      // If not → create new ticket
+      // Or create new ticket
       return createTicket(message, client);
     }
 
-    // =========================
-    // STAFF CHANNEL (modmail-)
-    // =========================
-    if (message.channel.name?.startsWith('modmail-')) {
+    // =====================================================
+    // STAFF TICKET CHANNEL
+    // =====================================================
+    if (!message.channel.name?.startsWith('modmail-')) return;
 
-      const guildConfig = await Config.findOne({ guildId: message.guild.id });
-      if (!guildConfig) return;
+    const guildConfig = await Config.findOne({ guildId: message.guild.id });
+    if (!guildConfig) return;
 
-      const staffRoleId = guildConfig.staffRoleId;
+    const staffRoleId = guildConfig.staffRoleId;
 
-      if (!message.member.roles.cache.has(staffRoleId)) {
-        return; // No permiso → no hace nada
+    // Only staff
+    if (!message.member.roles.cache.has(staffRoleId)) return;
+
+    // Only react to prefix commands
+    if (!message.content.startsWith(prefix)) return;
+
+    const args = message.content.slice(prefix.length).trim().split(/ +/);
+    const command = args.shift()?.toLowerCase();
+
+    // =====================================================
+    // CLOSE
+    // =====================================================
+    if (command === 'close') {
+
+      const ticket = await Ticket.findOne({
+        channelId: message.channel.id,
+        closed: false
+      });
+
+      if (!ticket) {
+        return message.reply('This is not an active ticket.');
       }
 
-      // ONLY react to commands starting with prefix
-      if (!message.content.startsWith(prefix)) return;
+      const reason = args.join(' ') || 'No reason provided';
 
-      const args = message.content.slice(prefix.length).trim().split(/ +/);
-      const command = args.shift()?.toLowerCase();
-
-      // =========================
-      // CLOSE COMMAND
-      // =========================
-      if (command === 'close') {
-
-        const ticket = await Ticket.findOne({
-          channelId: message.channel.id,
-          closed: false
-        });
-
-        if (!ticket) {
-          return message.reply('This is not an active ticket.');
-        }
-
-        const reason = args.join(' ') || 'No reason provided';
-
-        try {
-          await message.reply('Closing ticket...');
-          await closeTicket(message.channel, client, message.author, reason);
-        } catch (err) {
-          logger.error(err);
-          message.reply('Error closing ticket.');
-        }
-
-        return;
+      try {
+        await message.reply('Closing ticket...');
+        await closeTicket(message.channel, client, message.author, reason);
+      } catch (err) {
+        logger.error(err);
+        message.reply('Error closing ticket.');
       }
 
-      // =========================
-      // REPLY COMMAND (ONLY THIS SENDS MESSAGE)
-      // =========================
-      if (command === 'reply') {
-
-        const content = args.join(' ');
-        if (!content) {
-          return message.reply('Please provide a message to send.');
-        }
-
-        const ticket = await Ticket.findOne({
-          channelId: message.channel.id,
-          closed: false
-        });
-
-        if (!ticket) {
-          return message.reply('This is not an active ticket.');
-        }
-
-        try {
-          const user = await client.users.fetch(ticket.userId);
-          await user.send(content);
-
-          await message.react('✅'); // confirmation reaction
-        } catch (error) {
-          logger.error('Error sending message:', error);
-          await message.reply('Could not send message to user.');
-        }
-
-        return;
-      }
-
-      // Any other command → ignore
       return;
     }
+
+    // =====================================================
+    // REPLY (ONLY THIS SENDS MESSAGE)
+    // =====================================================
+    if (command === 'reply') {
+
+      const content = args.join(' ');
+      if (!content) {
+        return message.reply('Please provide a message to send.');
+      }
+
+      const ticket = await Ticket.findOne({
+        channelId: message.channel.id,
+        closed: false
+      });
+
+      if (!ticket) {
+        return message.reply('This is not an active ticket.');
+      }
+
+      try {
+        const user = await client.users.fetch(ticket.userId);
+
+        const embed = new EmbedBuilder()
+          .setColor(config.embedColor || '#ED4245')
+          .setAuthor({
+            name: message.guild.name + " Staff",
+            iconURL: message.guild.iconURL({ dynamic: true })
+          })
+          .setDescription(content)
+          .setFooter({ text: config.footer || 'Staff Reply' })
+          .setTimestamp();
+
+        await user.send({ embeds: [embed] });
+
+        await message.react('✅');
+
+      } catch (error) {
+        logger.error('Error sending embed:', error);
+        await message.reply('Could not send message to user.');
+      }
+
+      return;
+    }
+
+    // Any other command → do nothing
+    return;
   }
 };
 
-// =========================
-// LIST TICKETS COMMAND (DM)
-// =========================
+// =====================================================
+// LIST TICKETS
+// =====================================================
 async function handleListTicketsCommand(message, client) {
   try {
     const activeTickets = await Ticket.find({
